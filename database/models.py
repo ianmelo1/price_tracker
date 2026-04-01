@@ -39,7 +39,7 @@ class PriceHistory(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     price      = Column(Float, nullable=False)
     available  = Column(Boolean, default=True, nullable=False)
-    captured_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    captured_at = Column(DateTime, default=datetime.now, nullable=False)
 
     product = relationship("Product", back_populates="price_history")
 

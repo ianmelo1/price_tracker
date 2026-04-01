@@ -1,6 +1,7 @@
 # price_tracker/scheduler.py
 
 import logging
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -55,8 +56,8 @@ def _check_target(product, current_price: float) -> None:
 
 
 def start_scheduler() -> None:
-    """Inicia o agendador — roda check_prices no intervalo configurado."""
-    scheduler = BlockingScheduler()
+    """Inicia o agendador em background."""
+    scheduler = BackgroundScheduler()
     scheduler.add_job(
         func=check_prices,
         trigger=IntervalTrigger(minutes=config.check_interval_minutes),
@@ -65,10 +66,16 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
     logger.info("Scheduler iniciado — intervalo: %d min", config.check_interval_minutes)
+    check_prices()  # roda imediatamente na largada
+    scheduler.start()
+
+    # mantém a thread viva
     try:
-        check_prices()  # roda imediatamente na largada
-        scheduler.start()
+        while True:
+            import time
+            time.sleep(60)
     except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()
         logger.info("Scheduler encerrado.")
 
 

@@ -2,8 +2,8 @@
 """CRUD e queries para Product e PriceHistory."""
 
 import logging
-from typing import Optional
-from sqlalchemy import create_engine, select
+from typing import Optional, Any, Sequence
+from sqlalchemy import create_engine, select, Row, RowMapping
 from sqlalchemy.orm import sessionmaker
 
 from database.models import Base, PriceHistory, Product
@@ -31,17 +31,22 @@ def add_product(
     url: str,
     store: str,
     target_price: Optional[float] = None,
-) -> Product:
-    """Cadastra um novo produto e retorna o objeto criado."""
+) -> tuple[Product, bool]:
+    """Cadastra novo produto. Retorna (produto, criado) — criado=False se já existia."""
     with SessionLocal() as session:
+        existing = session.execute(select(Product).where(Product.url == url)).scalars().first()
+        if existing:
+            logger.warning("Produto já cadastrado: %s", url)
+            return existing, False
+
         product = Product(name=name, url=url, store=store, target_price=target_price)
         session.add(product)
         session.commit()
         logger.info("Produto cadastrado: %s (%s)", name, store)
-        return product
+        return product, True
 
 
-def get_active_products() -> list[Product]:
+def get_active_products() -> Sequence[Row[Any] | RowMapping | Any]:
     """Retorna todos os produtos com active=True."""
     with SessionLocal() as session:
         return session.execute(

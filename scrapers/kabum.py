@@ -1,67 +1,50 @@
 # price_tracker/scrapers/kabum.py
 
+import json
 import logging
-import requests
-from bs4 import BeautifulSoup
+import subprocess
+import sys
+from pathlib import Path
 
 from scrapers.base_scraper import BaseScraper, PriceResult
 
 logger = logging.getLogger(__name__)
 
+# Caminho absoluto do worker — funciona independente de onde o processo é iniciado
+_WORKER = Path(__file__).parent / "_kabum_worker.py"
+
 
 class KabumScraper(BaseScraper):
-    """Scraper da KaBuM usando requests + BeautifulSoup."""
-
     store_name = "kabum"
 
     def fetch_price(self, product_id: int, url: str) -> PriceResult:
-        """Busca o preço atual de um produto na KaBuM."""
         try:
             self._wait()
-            response = self._get(url)
-            return self._parse(product_id, response.text)
+            return self._scrape(product_id, url)
         except Exception as exc:
             return self._safe_error(url, exc)
 
-    def _get(self, url: str) -> requests.Response:
-        """Faz o request e valida o status HTTP."""
-        response = requests.get(url, headers=self.headers, timeout=15)
-        response.raise_for_status()
-        return response
+    def _scrape(self, product_id: int, url: str) -> PriceResult:
+        result = subprocess.run(
+            [sys.executable, str(_WORKER), url, self.headers["User-Agent"]],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
 
-    def _parse(self, product_id: int, html: str) -> PriceResult:
-        """Extrai preço e disponibilidade do HTML."""
-        soup = BeautifulSoup(html, "html.parser")
-        price = self._extract_price(soup)
-        available = self._extract_availability(soup)
-        if price is None:
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Worker falhou (code {result.returncode}): {result.stderr.strip()}"
+            )
+
+        data = json.loads(result.stdout)
+
+        if data["price"] is None:
             logger.warning("[kabum] Preço não encontrado para product_id=%s", product_id)
+
         return PriceResult(
             product_id=product_id,
-            price=price,
-            available=available,
+            price=data["price"],
+            available=data["available"],
             store=self.store_name,
         )
-
-    def _extract_price(self, soup: BeautifulSoup) -> float | None:
-        """Localiza e converte o preço para float."""
-        tag = soup.select_one("h4.text-4xl")
-        if not tag:
-            return None
-        raw = tag.get_text(strip=True)
-        clean = (
-            raw.replace("R$", "")
-            .replace("\xa0", "")
-            .replace(".", "")
-            .replace(",", ".")
-            .strip()
-        )
-        try:
-            return float(clean)
-        except ValueError:
-            return None
-
-    def _extract_availability(self, soup: BeautifulSoup) -> bool:
-        """Verifica se o produto está disponível."""
-        esgotado = soup.find("span", string=lambda t: t and "esgotado" in t.lower())
-        return esgotado is None

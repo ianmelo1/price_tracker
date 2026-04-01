@@ -39,5 +39,5 @@ class BaseScraper(ABC):
 
     # -- loga erro sem deixar a aplicação cair
     def _safe_error(self, url: str, exc: Exception) -> PriceResult:
-        logger.error("[%s] Falha ao buscar %s: %s", self.store_name, url, exc)
+        logger.error("[%s] Falha ao buscar %s:", self.store_name, url, exc_info=True)
         return PriceResult(product_id=0, price=None, available=False, store=self.store_name)
