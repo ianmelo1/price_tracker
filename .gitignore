@@ -1,1 +1,27 @@
+# Ambiente
 .env
+.env.*
+!.env.example
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Banco de dados local
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
