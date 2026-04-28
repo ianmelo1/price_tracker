@@ -1,6 +1,6 @@
 # price_tracker/app.py
 import threading
-from scheduler import start_scheduler
+from scheduler import start_scheduler, check_product
 import streamlit as st
 import plotly.graph_objects as go
 from database.repository import (
@@ -41,9 +41,10 @@ with st.sidebar.form("add_product_form"):
         if not name or not url:
             st.sidebar.error("Nome e URL são obrigatórios.")
         else:
-            _, criado = add_product(name=name, url=url, store=store, target_price=target_price or None)
+            product, criado = add_product(name=name, url=url, store=store, target_price=target_price or None)
             if criado:
-                st.sidebar.success(f"'{name}' adicionado!")
+                st.sidebar.success(f"'{name}' adicionado! Buscando preço em background...")
+                threading.Thread(target=check_product, args=(product,), daemon=True, name=f"check-{product.id}").start()
             else:
                 st.sidebar.warning("Esse produto já está sendo monitorado!")
             st.rerun()
@@ -125,8 +126,12 @@ for product in products:
     else:
         st.caption("Sem histórico de preços ainda.")
 
-    # -- desativar produto
+    # -- opções do produto
     with st.expander("Opções"):
+        if st.button("🔄 Verificar preço agora", key=f"check_{product.id}"):
+            with st.spinner("Buscando preço..."):
+                check_product(product)
+            st.rerun()
         if st.button("🗑️ Parar de monitorar", key=f"deactivate_{product.id}"):
             deactivate_product(product.id)
             st.warning(f"'{product.name}' removido do monitoramento.")

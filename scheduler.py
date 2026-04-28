@@ -20,29 +20,32 @@ SCRAPERS = {
 }
 
 
+def check_product(product) -> None:
+    """Verifica o preço de um único produto e salva no histórico."""
+    scraper = SCRAPERS.get(product.store)
+
+    if scraper is None:
+        logger.warning("Scraper não encontrado para loja: %s", product.store)
+        return
+
+    previous = get_latest_price(product.id)
+    result = scraper.fetch_price(product.id, product.url)
+
+    if result.price is None:
+        send_error_alert(product.store, product.url, "Preço não encontrado na página")
+        return
+
+    record_price(product.id, result.price, result.available)
+    logger.info("[%s] %s → R$ %.2f", product.store, product.name, result.price)
+    _check_target(product, result.price, previous_price=previous.price if previous else None)
+
+
 def check_prices() -> None:
     """Busca o preço de todos os produtos ativos e salva no histórico."""
     products = get_active_products()
     logger.info("Verificando %d produto(s)...", len(products))
-
     for product in products:
-        scraper = SCRAPERS.get(product.store)
-
-        if scraper is None:
-            logger.warning("Scraper não encontrado para loja: %s", product.store)
-            continue
-
-        previous = get_latest_price(product.id)
-        result = scraper.fetch_price(product.id, product.url)
-
-        if result.price is None:
-            send_error_alert(product.store, product.url, "Preço não encontrado na página")
-            continue
-
-        record_price(product.id, result.price, result.available)
-        logger.info("[%s] %s → R$ %.2f", product.store, product.name, result.price)
-
-        _check_target(product, result.price, previous_price=previous.price if previous else None)
+        check_product(product)
 
 
 def _check_target(product, current_price: float, previous_price: float | None) -> None:
