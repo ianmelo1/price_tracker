@@ -1,4 +1,4 @@
-# Ambiente
+# Environment
 .env
 .env.*
 !.env.example
@@ -8,7 +8,7 @@
 venv/
 env/
 
-# Banco de dados local
+# Database
 *.db
 *.sqlite3
 
@@ -18,6 +18,9 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+*.egg-info/
+dist/
+build/
 
 # IDE
 .idea/
@@ -25,3 +28,7 @@ __pycache__/
 
 # Logs
 *.log
+
+# OS
+.DS_Store
+Thumbs.db

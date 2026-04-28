@@ -1,7 +1,7 @@
 [project]
 name = "price-tracker"
 version = "0.1.0"
-description = "Add your description here"
+description = "Automated price tracker for Brazilian e-commerce stores with Discord alerts"
 requires-python = ">=3.13"
 dependencies = [
     "apscheduler>=3.11.2",

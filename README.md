@@ -1,155 +1,230 @@
-# 🛒 Price Tracker
+# Price Tracker
 
-Monitor preços de eletrônicos em tempo real nas principais lojas do Brasil e receba alertas via Telegram quando o preço atingir sua meta.
+> Automated price monitoring for Brazilian e-commerce stores — with a live dashboard and Discord alerts.
 
-## Funcionalidades
-
-- **Scraping automático** de KaBuM, Mercado Livre (API oficial), Amazon BR e Magazine Luiza
-- **Dashboard interativo** com histórico de preços e gráficos (Streamlit + Plotly)
-- **Alertas via Telegram** quando o preço cair abaixo do valor alvo
-- **Agendamento automático** de buscas com APScheduler
-- **Banco de dados local** SQLite com histórico completo via SQLAlchemy
+![Python](https://img.shields.io/badge/Python-3.13%2B-blue?logo=python)
+![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit)
+![SQLite](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Built with Claude](https://img.shields.io/badge/Built%20with-Claude%20(Anthropic)-blueviolet?logo=anthropic)
 
 ---
 
-## Pré-requisitos
+## What it does
 
-- Python 3.10+
-- [Telegram Bot Token](https://core.telegram.org/bots/tutorial) (opcional, para notificações)
-- Credenciais da [API do Mercado Livre](https://developers.mercadolivre.com.br/) (opcional)
+Price Tracker watches product URLs across multiple Brazilian online retailers, records prices over time, and sends you a Discord notification the moment a product hits your target price.
+
+- Add any product URL → it starts being monitored
+- Prices are checked automatically on a configurable interval
+- Interactive dashboard shows price history charts in real time
+- Discord alert fires when the current price ≤ your target
 
 ---
 
-## Instalação
+## Stores supported
+
+| Store | Method | Status |
+|---|---|---|
+| KaBuM | Playwright (headless Chrome) | ✅ Working |
+| Mercado Livre | Official API | ✅ Working |
+| Amazon BR | — | 🚧 Coming soon |
+| Magazine Luiza | — | 🚧 Coming soon |
+
+---
+
+## Architecture
+
+```
+price_tracker/
+├── app.py                    # Streamlit dashboard (UI entry point)
+├── scheduler.py              # APScheduler — runs price checks on interval
+├── config.py                 # Config loaded from .env
+│
+├── scrapers/
+│   ├── base_scraper.py       # Abstract base class + PriceResult dataclass
+│   ├── kabum.py              # KaBuM — spawns headless browser via subprocess
+│   ├── _kabum_worker.py      # Playwright worker (called by kabum.py)
+│   ├── mercadolivre.py       # Mercado Livre — calls official REST API
+│   ├── amazon_br.py          # Stub (not yet implemented)
+│   └── magazineluiza.py      # Stub (not yet implemented)
+│
+├── database/
+│   ├── models.py             # SQLAlchemy models: Product, PriceHistory
+│   └── repository.py         # CRUD layer — all DB interactions go here
+│
+├── notifications/
+│   └── discord_notifier.py   # Sends embeds to a Discord webhook
+│
+├── requirements.txt
+├── pyproject.toml
+├── .env.example
+└── .gitignore
+```
+
+**Data flow:**
+
+```
+User adds product (Streamlit UI)
+        ↓
+   products table (SQLite)
+        ↓
+   Scheduler fires (every N minutes)
+        ↓
+   Scraper fetches price
+        ↓
+   price_history table updated
+        ↓
+   price ≤ target? → Discord alert
+```
+
+---
+
+## Prerequisites
+
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- A Discord webhook URL for notifications
+- Mercado Livre API credentials (only if tracking ML products)
+
+---
+
+## Installation
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/seu-usuario/price_tracker.git
+# 1. Clone
+git clone https://github.com/ianmelo1/price_tracker.git
 cd price_tracker
 
-# 2. Crie e ative o ambiente virtual
-python -m venv .venv
-source .venv/bin/activate        # Linux/macOS
-.venv\Scripts\activate           # Windows
-
-# 3. Instale as dependências
+# 2. Create virtual environment and install dependencies
+uv sync
+# or with pip:
+python -m venv .venv && .venv/Scripts/activate   # Windows
 pip install -r requirements.txt
 
-# 4. Instale os navegadores do Playwright (necessário para Magazine Luiza)
+# 3. Install Playwright browsers (needed for KaBuM scraping)
 playwright install chromium
+
+# 4. Copy and fill in the config
+cp .env.example .env
+# Edit .env with your Discord webhook and other settings
 ```
 
 ---
 
-## Configuração
+## Configuration
 
-Crie um arquivo `.env` na raiz do projeto com base no exemplo abaixo:
+All settings live in `.env`. Copy `.env.example` to get started:
 
 ```env
-# Banco de dados
+# Database (SQLite, auto-created on first run)
 DATABASE_URL=sqlite:///price_tracker.db
 
-# Telegram
-TELEGRAM_BOT_TOKEN=seu_token_aqui
-TELEGRAM_CHAT_ID=seu_chat_id_aqui
+# Discord Webhook — required for price alerts
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN
 
-# Mercado Livre API
-ML_CLIENT_ID=seu_client_id
-ML_CLIENT_SECRET=seu_client_secret
+# Mercado Livre API — optional, only for ML product URLs
+MERCADOLIVRE_APP_ID=your_app_id
+MERCADOLIVRE_SECRET=your_secret
 
-# Agendamento (em minutos)
-SCRAPE_INTERVAL_MINUTES=60
+# How often to check prices (default: 60 minutes)
+CHECK_INTERVAL_MINUTES=60
 ```
 
-> ⚠️ **Nunca** commite o arquivo `.env`. Ele já está incluído no `.gitignore`.
+> **Never commit `.env`** — it is already listed in `.gitignore`.
 
 ---
 
-## Uso
+## Usage
 
-### Iniciando o dashboard
+### Run the dashboard
 
 ```bash
 streamlit run app.py
 ```
 
-Acesse em `http://localhost:8501`.
+Opens at `http://localhost:8501`. The background scheduler starts automatically inside the Streamlit process.
 
-### Executando o agendador em background
+### Run the scheduler standalone (headless)
 
 ```bash
 python scheduler.py
 ```
 
-### Executando um scraper manualmente
+Useful if you want to run just the price-checking loop without the UI (e.g., on a server).
+
+### Test a scraper manually
 
 ```python
 from scrapers.kabum import KaBumScraper
 
 scraper = KaBumScraper()
-resultado = scraper.get_price("https://www.kabum.com.br/produto/...")
-print(resultado)
+result = scraper.fetch_price(product_id=1, url="https://www.kabum.com.br/produto/...")
+print(result.price, result.available)
 ```
 
 ---
 
-## Estrutura do Projeto
+## How price alerts work
 
+When the scheduler runs, for each active product it:
+
+1. Calls the appropriate scraper
+2. Records the price in `price_history`
+3. Compares `current_price` with `target_price`
+4. If `current_price <= target_price` → sends a Discord embed with the product name, store, both prices, and a direct link
+
+Error alerts (scraper failure) are also sent to Discord so you know when something stops working.
+
+---
+
+## Database schema
+
+Two SQLAlchemy models backed by SQLite:
+
+**`Product`**
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer PK | Auto |
+| name | String | Product display name |
+| url | String | Unique product URL |
+| store | String | `kabum`, `mercadolivre`, etc. |
+| target_price | Float | Nullable — alert threshold |
+| active | Boolean | Soft delete flag |
+| created_at | DateTime | Auto |
+
+**`PriceHistory`**
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer PK | Auto |
+| product_id | FK → Product | Cascade delete |
+| price | Float | Scraped price |
+| available | Boolean | In stock? |
+| captured_at | DateTime | Indexed with product_id |
+
+---
+
+## Contributing
+
+Pull requests are welcome. To add a new store:
+
+1. Create `scrapers/your_store.py` inheriting from `BaseScraper`
+2. Implement `fetch_price(product_id, url) -> PriceResult`
+3. Register the store key in `scheduler.py` and the Streamlit selectbox in `app.py`
+
+```bash
+git checkout -b feature/add-americanas-scraper
+# ... implement ...
+git commit -m "feat: add Americanas scraper"
+git push origin feature/add-americanas-scraper
 ```
-price_tracker/
-├── scrapers/
-│   ├── base_scraper.py       # Classe base abstrata
-│   ├── kabum.py              # Scraper KaBuM (requests + BS4)
-│   ├── mercadolivre.py       # Integração API oficial
-│   ├── amazon_br.py          # Scraper Amazon BR
-│   └── magazineluiza.py      # Scraper Magalu (Playwright)
-├── database/
-│   ├── models.py             # Modelos Product e PriceHistory
-│   └── repository.py         # Camada de acesso a dados
-├── notifications/
-│   └── telegram_bot.py       # Envio de alertas via Telegram
-├── app.py                    # Dashboard Streamlit
-├── scheduler.py              # Agendamento com APScheduler
-├── config.py                 # Carregamento de variáveis de ambiente
-├── requirements.txt
-├── .env.example
-└── README.md
-```
 
 ---
 
-## Lojas Suportadas
+## License
 
-| Loja            | Método          | Rate Limit |
-|-----------------|-----------------|------------|
-| KaBuM           | requests + BS4  | 2s         |
-| Mercado Livre   | API oficial     | 2s         |
-| Amazon BR       | requests + BS4  | 2s         |
-| Magazine Luiza  | Playwright      | 2s         |
+MIT — see [LICENSE](LICENSE) for details.
 
 ---
 
-## Banco de Dados
-
-O projeto usa SQLite com dois modelos principais:
-
-- **`Product`** — URL, nome, loja, preço-alvo, data de cadastro
-- **`PriceHistory`** — preço coletado, timestamp, FK para Product
-
-O banco é criado automaticamente na primeira execução.
-
----
-
-## Contribuindo
-
-1. Fork o repositório
-2. Crie uma branch: `git checkout -b feature/nova-loja`
-3. Commit suas mudanças: `git commit -m 'feat: adiciona scraper Americanas'`
-4. Push: `git push origin feature/nova-loja`
-5. Abra um Pull Request
-
----
-
-## Licença
-
-Distribuído sob a licença MIT. Veja [`LICENSE`](LICENSE) para mais informações.
+> **Built with [Claude](https://www.anthropic.com/claude) by Anthropic.**
+> This project was designed and implemented with the assistance of Claude, Anthropic's AI assistant.
