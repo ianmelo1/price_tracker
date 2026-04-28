@@ -1,10 +1,9 @@
 # price_tracker/database/models.py
 """Modelos ORM: Product e PriceHistory."""
 
-from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, DateTime, Float,
-    ForeignKey, Index, Integer, String,
+    ForeignKey, Index, Integer, String, func,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship
 
@@ -22,7 +21,7 @@ class Product(Base):
     store         = Column(String(50), nullable=False)  # kabum | mercadolivre | amazon | magazineluiza
     target_price  = Column(Float, nullable=True)
     active        = Column(Boolean, default=True, nullable=False)
-    created_at    = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at    = Column(DateTime, server_default=func.now(), nullable=False)
 
     price_history = relationship(
         "PriceHistory", back_populates="product", cascade="all, delete-orphan"
@@ -39,7 +38,7 @@ class PriceHistory(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     price      = Column(Float, nullable=False)
     available  = Column(Boolean, default=True, nullable=False)
-    captured_at = Column(DateTime, default=datetime.now, nullable=False)
+    captured_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     product = relationship("Product", back_populates="price_history")
 

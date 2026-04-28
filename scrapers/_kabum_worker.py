@@ -51,9 +51,9 @@ def run(url: str, user_agent: str) -> dict:
                 "button:has-text('Aceitar todos')"
             )
             accept_btn.first.click(timeout=5000)
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(1000)  # aguarda banner sumir antes de extrair preço
         except Exception:
-            pass
+            pass  # sem banner — segue normalmente
 
         result = {
             "price": extract_price(page),

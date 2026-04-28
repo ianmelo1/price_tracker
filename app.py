@@ -1,6 +1,6 @@
 # price_tracker/app.py
 import threading
-from scheduler import start_scheduler, check_prices
+from scheduler import start_scheduler
 import streamlit as st
 import plotly.graph_objects as go
 from database.repository import (
@@ -17,15 +17,11 @@ init_db()
 
 # ── Scheduler em background ───────────────────────────────────────────────────
 
-def _start_scheduler_thread() -> None:
-    """Inicia o scheduler em thread separada para não bloquear o Streamlit."""
-    thread = threading.Thread(target=start_scheduler, daemon=True, name="scheduler")
-    thread.start()
-
-# garante que só sobe uma thread mesmo o Streamlit recarregando o script
+# garante que só inicia uma vez mesmo o Streamlit recarregando o script
+# roda em thread para não bloquear o startup enquanto check_prices() executa
 if "scheduler_started" not in st.session_state:
     st.session_state["scheduler_started"] = True
-    _start_scheduler_thread()
+    threading.Thread(target=start_scheduler, daemon=True, name="scheduler-init").start()
 
 st.set_page_config(page_title="Price Tracker", page_icon="🔔", layout="wide")
 st.title("🔔 Price Tracker")

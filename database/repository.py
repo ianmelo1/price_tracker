@@ -2,8 +2,8 @@
 """CRUD e queries para Product e PriceHistory."""
 
 import logging
-from typing import Optional, Any, Sequence
-from sqlalchemy import create_engine, select, Row, RowMapping
+from typing import Optional
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from database.models import Base, PriceHistory, Product
@@ -46,7 +46,7 @@ def add_product(
         return product, True
 
 
-def get_active_products() -> Sequence[Row[Any] | RowMapping | Any]:
+def get_active_products() -> list[Product]:
     """Retorna todos os produtos com active=True."""
     with SessionLocal() as session:
         return session.execute(

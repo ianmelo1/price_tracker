@@ -22,7 +22,7 @@ class KabumScraper(BaseScraper):
             self._wait()
             return self._scrape(product_id, url)
         except Exception as exc:
-            return self._safe_error(url, exc)
+            return self._safe_error(product_id, url, exc)
 
     def _scrape(self, product_id: int, url: str) -> PriceResult:
         result = subprocess.run(

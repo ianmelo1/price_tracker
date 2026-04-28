@@ -1,6 +1,7 @@
 # price_tracker/scrapers/mercadolivre.py
 
 import logging
+import re
 import requests
 
 from scrapers.base_scraper import BaseScraper, PriceResult
@@ -9,6 +10,8 @@ from config import config
 logger = logging.getLogger(__name__)
 
 ML_API = "https://api.mercadolivre.com/items"
+# cobre MLB27669736 e o formato antigo MLB-27669736-nome
+_MLB_RE = re.compile(r"MLB-?(\d+)", re.IGNORECASE)
 
 
 class MercadoLivreScraper(BaseScraper):
@@ -24,14 +27,14 @@ class MercadoLivreScraper(BaseScraper):
             data = self._get(item_id)
             return self._parse(product_id, data)
         except Exception as exc:
-            return self._safe_error(url, exc)
+            return self._safe_error(product_id, url, exc)
 
-    # -- extrai o ID do item da URL (ex: MLB3123456789)
+    # -- extrai o ID do item da URL (ex: MLB3123456789 ou MLB-3123456789-nome)
     def _extract_item_id(self, url: str) -> str:
-        for part in url.split("/"):
-            if part.upper().startswith("MLB"):
-                return part.split("-")[0].upper()
-        raise ValueError(f"ID do item não encontrado na URL: {url}")
+        match = _MLB_RE.search(url)
+        if not match:
+            raise ValueError(f"ID do item não encontrado na URL: {url}")
+        return f"MLB{match.group(1)}"
 
     # -- consulta a API e retorna o JSON
     def _get(self, item_id: str) -> dict:
