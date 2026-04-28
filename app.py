@@ -121,7 +121,7 @@ for product in products:
             yaxis_title="Preço (R$)",
             yaxis_tickprefix="R$ ",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     else:
         st.caption("Sem histórico de preços ainda.")
 
