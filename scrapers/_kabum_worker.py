@@ -7,20 +7,32 @@ import json
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 
+def _parse_price(raw: str) -> float:
+    clean = (
+        raw.replace("R$", "")
+           .replace("\xa0", "")
+           .replace("\u00a0", "")
+           .replace(".", "")
+           .replace(",", ".")
+           .strip()
+    )
+    return float(clean)
+
+
 def extract_price(page) -> float | None:
+    # Seletor em estoque
     try:
         tag = page.locator("h4.text-4xl").first
-        tag.wait_for(timeout=8000)
-        raw = tag.inner_text()
-        clean = (
-            raw.replace("R$", "")
-               .replace("\xa0", "")
-               .replace("\u00a0", "")
-               .replace(".", "")
-               .replace(",", ".")
-               .strip()
-        )
-        return float(clean)
+        tag.wait_for(timeout=5000)
+        return _parse_price(tag.inner_text())
+    except (PlaywrightTimeout, ValueError):
+        pass
+
+    # Seletor esgotado \u2014 pre\u00e7o exibido em cinza
+    try:
+        tag = page.locator("span.text-secondary-500.font-semibold").first
+        tag.wait_for(timeout=4000)
+        return _parse_price(tag.inner_text())
     except (PlaywrightTimeout, ValueError):
         return None
 

@@ -3,7 +3,7 @@
 
 import logging
 from typing import Optional
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
 from database.models import Base, PriceHistory, Product
@@ -107,3 +107,31 @@ def get_latest_price(product_id: int) -> Optional[PriceHistory]:
             .limit(1)
         )
         return session.execute(stmt).scalars().first()
+
+
+def get_price_stats(product_id: int) -> dict:
+    """Retorna min, max, média e primeiro preço registrado de um produto."""
+    with SessionLocal() as session:
+        row = session.execute(
+            select(
+                func.min(PriceHistory.price),
+                func.max(PriceHistory.price),
+                func.avg(PriceHistory.price),
+                func.count(PriceHistory.id),
+            ).where(PriceHistory.product_id == product_id)
+        ).first()
+        if not row or row[3] == 0:
+            return {"min": None, "max": None, "avg": None, "count": 0}
+        first_entry = session.execute(
+            select(PriceHistory)
+            .where(PriceHistory.product_id == product_id)
+            .order_by(PriceHistory.captured_at.asc())
+            .limit(1)
+        ).scalars().first()
+        return {
+            "min": row[0],
+            "max": row[1],
+            "avg": row[2],
+            "count": row[3],
+            "first_price": first_entry.price if first_entry else None,
+        }

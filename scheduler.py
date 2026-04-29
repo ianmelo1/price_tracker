@@ -36,6 +36,11 @@ def check_product(product) -> None:
         return
 
     record_price(product.id, result.price, result.available)
+
+    if not result.available:
+        logger.warning("[%s] '%s' está esgotado — rastreamento pausado", product.store, product.name)
+        return
+
     logger.info("[%s] %s → R$ %.2f", product.store, product.name, result.price)
     _check_target(product, result.price, previous_price=previous.price if previous else None)
 
@@ -45,6 +50,10 @@ def check_prices() -> None:
     products = get_active_products()
     logger.info("Verificando %d produto(s)...", len(products))
     for product in products:
+        latest = get_latest_price(product.id)
+        if latest and not latest.available:
+            logger.info("[%s] Pulando '%s' — esgotado", product.store, product.name)
+            continue
         check_product(product)
 
 
